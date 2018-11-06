@@ -11,7 +11,8 @@ import UIKit
 // we changed this from UIViewController into UITableViewController because we deleted that page. and we will also edit the file name for this file so it will make sense -- and we will name it TodoListViewController.swift
     class TodoListViewController: UITableViewController {
         
-        let itemArray = ["Find Mike", "Buy Eggos", "Destroy Demogorgon"]
+        //we changed this from let into var because we want this to be mutable, again let is fixed but here we needed our newly added item to be included in the array
+        var itemArray = ["Find Mike", "Buy Eggos", "Destroy Demogorgon"]
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -87,12 +88,64 @@ import UIKit
                 tableView.deselectRow(at: indexPath, animated: true)
             
 
-            
-            
         }
+        
+        //MARK: Add New Items -- here we can add code to determine what should happen when the user presses that add button --- and what we want to happen here is for a pop up or a UI alert controller to show when i press the add button and to have a textfield in that UI alert so that i can write a quick to do list item and then append it to the end of our item array --- so now lets create a brandnew alert.
+
+        @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
+            
+            var textField = UITextField()
+            
+            let alert = UIAlertController(title: "Add New Todoey Item", message: "", preferredStyle: .alert)
+            
+            //and then we're going to create an action - and this is going to be the UI alert action and this action is going to have a title, style and a handler -- the add item is going to be the button that you're going to press once your done with writing your new todolist.
+            let action = UIAlertAction(title: "Add Item", style: .default) {
+                 (action) in
+                
+                //what will happen once the user clicks the add item button on our UIalert -- this is the place where we make something happen after the user clicked the add item button, so nothing will happen when this block of code is empty
+                //print("Success!")
+                //print(textField.text)
+       
+                //we now able to get any value that is inside the textfield because of this print statement above. It is very important to understand where these local variables are available and how you can use them to store data and read data. So now we need to fix this up, and instead of the print statement will put some action in it based on what functions we really need -- and that is to add whatever text the user inserted into our array and append into this array at the end -- but before we ca append an item to our item array, we first need to change this array from being immutable because its a constant mutable by getting rid of that list and changing it to all.
+                
+                //we need to force unwrap it because the text property of a textfield is never going to equal nil even if its empty its going to be set to an empty string.And we can add some more checking code in here to maybe prevent the action from going forwards if the textfield is empty or add some more vaidation code. but for now we're just going to say that if the user entered nothing will just simply have an empty cell -- we can say if textfield.text is nil, then simply append the string new item. And because we are inside closure, we have to specify self to tell the complier explicitly where this item array exists i.eg in the current class.
+                self.itemArray.append(textField.text!)
+                
+                //now up to this point, even if everything has setup all the codes are good to go, there's one issue that we will be encountering, what happen is that whatever the user inputs will still not show in our UI, however it is already added in our array, so what happen is that, we need to reload it for it to display, and so we added this code below.
+                
+                self.tableView.reloadData()
+                
+        }
+            alert.addTextField { (alertTextField) in
+                alertTextField.placeholder = "Create new item"
+                textField = alertTextField
+                /*were going to print whatever text is in the alertTextField --- when we click the addbutton on the print success at the top there we can write some code that specifies what should happen once the user clicks the add item button on the alert but the alert textfield is created as a local variable only inside this closure (inside the "in") --- so what should we do to pass this into the above code -- inside the Add Item button? --- so essentially, what we need is a local variable inside this IB Action --- do inside the scope of the curly braces of addButtonPressed, that's accessible to all of these other completion handlers.
+                
+                    So currently, we've got this alert textfield that has the scope of just this closure ("in") -- and if we want to change its very very limited scope i.e being available just inside here in the alert.addTextField -- then we have to create a local variable within the scope of this addbuttonpressed, so anywhere that's outside of one of these closures.
+                 
+                    So what we can do is we can create a textfield up here at the top-- var textField = UITextField() -- which is going to be a UItextfield and we're going to initialize it to an empty UItextfield -- now this textfield has the scope of the entire buttonpressed IB action and is going to be accessible on all the scope within buttonpressed.
+                 
+                 So now what we can do is we can set this textField with a wider scope to equal the alert textfield that has a slightly narrowest scope because its only available inside here -- alert.addTextField --- textField = alertTextField. --- and this doesnt exist outside of this scope. so we're extending the scope of that alert textfield to this addbuttonpressed.
+                 
+                 So the sequence of events matters a great deal.
+                */
+                
+        //and we can solve that timing problem by simply storing a reference to that alert textfield inside a local variable thats available to everybody that's inside to the addButtonPressed -- and this textField is what we're going to print inside here so we can say print textfield.text instead of  this print statement below.
+                //print(alertTextField.text)
+                //prints to see when this clouse gets triggered
+               // print("Now")
+                
+                
+            }
+            
+            
+            alert.addAction(action)
+            
+            //so here we finally need to show our alert -- so we simply say present, and its a viewcontroller that we want to present and the viewcontroller to present -- and the viewcontroller is ofcourse the alert.
+            present(alert, animated: true, completion: nil)
+    }
 
 }
-
 
 
 
