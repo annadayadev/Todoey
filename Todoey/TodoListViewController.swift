@@ -13,10 +13,24 @@ import UIKit
         
         //we changed this from let into var because we want this to be mutable, again let is fixed but here we needed our newly added item to be included in the array
         var itemArray = ["Find Mike", "Buy Eggos", "Destroy Demogorgon"]
+   
+    //we now need to create a persistent local storage--using UserDefaults.
+        //so inorder to use a default we have to create a brand new object --defaults
+        let defaults = UserDefaults.standard
 
-    override func viewDidLoad() {
+        override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
+            
+    //After we look for our file that was saved but is not showing in our UI--- why is it not showing up in our tableview? well its because we havent used it to retrieve the data -- so all we need to do in order to retreive our data is we can go into viewdidload
+            
+        //itemArray = defaults.array(forKey: "TodoListArray") as! [String]
+            
+        //and were going to cast this as an array of string, so this works very well if our todolist array actually exists but if it doesnt, then our app will crash. And to avoid that, instead we can write this a conditional statement
+            
+            if let items = defaults.array(forKey: "TodoListArray") as? [String] {
+                itemArray = items
+            }
     }
         
         //Mark - Tableview Datasource Methods
@@ -53,7 +67,7 @@ import UIKit
         
         //So to create this up the first thing that we need is some tableview delegate methods.
         
-        //Mark - TableView Delegate Methods
+//Mark - TableView Delegate Methods
         
         //start typing tableview and see all the suggest ---- and the one that we want is the didSelectRowAt indexPath --- tellsthe delegate that the specified row is now selected.
         override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -90,7 +104,7 @@ import UIKit
 
         }
         
-        //MARK: Add New Items -- here we can add code to determine what should happen when the user presses that add button --- and what we want to happen here is for a pop up or a UI alert controller to show when i press the add button and to have a textfield in that UI alert so that i can write a quick to do list item and then append it to the end of our item array --- so now lets create a brandnew alert.
+//MARK: Add New Items -- here we can add code to determine what should happen when the user presses that add button --- and what we want to happen here is for a pop up or a UI alert controller to show when i press the add button and to have a textfield in that UI alert so that i can write a quick to do list item and then append it to the end of our item array --- so now lets create a brandnew alert.
 
         @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
             
@@ -111,7 +125,14 @@ import UIKit
                 //we need to force unwrap it because the text property of a textfield is never going to equal nil even if its empty its going to be set to an empty string.And we can add some more checking code in here to maybe prevent the action from going forwards if the textfield is empty or add some more vaidation code. but for now we're just going to say that if the user entered nothing will just simply have an empty cell -- we can say if textfield.text is nil, then simply append the string new item. And because we are inside closure, we have to specify self to tell the complier explicitly where this item array exists i.eg in the current class.
                 self.itemArray.append(textField.text!)
                 
-                //now up to this point, even if everything has setup all the codes are good to go, there's one issue that we will be encountering, what happen is that whatever the user inputs will still not show in our UI, however it is already added in our array, so what happen is that, we need to reload it for it to display, and so we added this code below.
+                //now what we can do is we can save that updated item array to use a defaults and we can do that in a single line of code. We're going to use value for key which takes any object-- and in this case its going to be an array or other self.itemArray because remember were inside a closure and the key is going to identify this array inside our userdefaults. and will call the forkey todolistarray, and ofcourse we're inside a closure, we have to add self at the beginning of the defaults.
+                self.defaults.set(self.itemArray, forKey:"TodoListArray")
+                
+                //again after adding the code above, we are still not be able to save our newly added items if we close the app, because again like what happened before, we haven't able to reload our app
+                
+                
+                
+                //now up to this point, even if everything has setup all the codes are good to go, there's one issue that we will be encountering, what happen is that whatever the user inputs will still not show in our UI, however it is already added in our array, so what happen is that, we need to reload it for it to display, and so we added this code below. We always need a key that we are going to use to retrieve the item and then we can add the value, it could be anything, it could be an array could be a dictionary, string any data type in there and we can grab it back using this key. So how can we find use a default file so taht we can see our data in to do that we need to grab the filepath of our sandbox that our app runs, we need to get the ID of the simulator, and we also need the ID of the sandbox where our app lives in --- lets go to our appDelegate file.
                 
                 self.tableView.reloadData()
                 
