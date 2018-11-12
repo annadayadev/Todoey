@@ -6,38 +6,43 @@
 //  Copyright © 2018 Ann Adaya. All rights reserved.
 //
 
+//For our SearchBar --- Every single time we've declared off you viecontrollerapp as a delegate of something we also have to make an IB outlet for our search bar and then inside viewdidload say something like searchbar.delegate = self ---- same procedure, adding the protocol in the class declaration and also setting the outlet's delegate as self.
 
-/* Thead Signal : SIGABRT ERROR MEANS THE APP HAS CRASH
-    A non property attempting to se a nonproperty list object using user default.
- 
-    Do not use userdefaults because its very limited to string, its very inefficient, dont use default for anything other than that basically user defaults --
-
-*/
 import UIKit
+import CoreData
 
     class TodoListViewController: UITableViewController {
         
-        
         var itemArray = [Item]()
-        
-   //we move this datafilepath up here so it can be access by our codes on the add item --- now this is a global constant.
-        let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
-        
-  //so instead of using userdefaults, we're going to create our own list at the location of our data file path.
-        //let defaults = UserDefaults.standard
+ 
+        var selectedCategory : Category? {
+            didSet {
+                //when we do call loaditems were certain that we've already got a value for our selected category and were not calling it before we actually have a value which might crash our app
+                
+                loadItems()
+    
+            }
+        }
+   
+//this goes into the appdelegate, grabs the persistent container, and then we grab a reference to the context for that persistent container
+        let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+
         
         override func viewDidLoad() {
             super.viewDidLoad()
-            
-            //we'll create a file path to the documents folder -- filemanager, which is the object that provides an interface to the filesystem ----and default returns the shared file manager object for the process-- singleton contains a whole bunch of urls and they're organized by directory and domain mask. So the search path directory we need to tap into is the --- document directory. But be careful here, we are looking for DOCUMENT DIRECTORY and not documentation directory they are very different.
         
+       //were just getting the path to where the data is being stored for our current app
+            print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
             
-            print(dataFilePath)
+    //search bar
             
-            loadItems()
+            //this is optional, you can do this on code or alternatively you can simply hit control drog and point to the little yellow icon at the header which represents 
+          //  searchBar.delegate = self
+            
+            //loadItems()
     }
         
-    //Mark - Tableview Datasource Methods
+//Mark - Tableview Datasource Methods
         
         override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
             return itemArray.count
@@ -47,64 +52,48 @@ import UIKit
 
         let cell = tableView.dequeueReusableCell(withIdentifier: "ToDoItemCell", for: indexPath)
 
-//so this item now is now the item that we're currently trying to set up for the cell on the (cellForRowAt indexPath:) above
         let item = itemArray[indexPath.row]
             
         cell.textLabel?.text = item.title
         
-/*short code from the if else statement below -- using ternary operator
-    value = condition ? valueIfTrue : valueIfFalse
-            
-      cell.accessoryType = item.done == true ? .checkmark : .none
-             
-        we can make it shorter as well
- */
-            
-//this says if the cell.accessoryType is true then set it to check mark -- and if its not true then set it to .none
-  
-// this says, set the cells accessory type depending on whether the item .done is true, if its true then set it to checkmark, if not then set it to .none
         cell.accessoryType = item.done ? .checkmark : .none
             
-//            if item.done == true {
-//                cell.accessoryType = .checkmark
-//            } else {
-//                cell.accessoryType = .none
-//            }
 
             return cell
         }
         
         
+     // Sequence of deleting, first is we have to call context delete first to remove this and its managed object from our context before we try to remove it from item array because we're using the item array here to try and grab that object -- so now if we run an app with this new order then you can see that when we try to delete something our app works as expected
+        
+        
 //Mark - TableView Delegate Methods
         
+        //No matter how you decide to update your NSManageObject, you will still have to always have to call context.save -- that's because we're doing all of our changes, all of our creating, updating, reading and destroying inside our temporary context -- and only once we're happy with those changes that we call context.save and commits those changes to our permanent container.
 
         override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+    
+    /* To delete items from our context -- all we need to do is call context.delete and then specify the item that we want removed but that's not enough -- as with everything using coredata and trying to do crud on it we also have to also save the context and commit the current status to our persistent container. Basically whenever you need to change the data inside the persistent store you always need to call context.save to commit those changes.
+ 
+        Now when you're reading or as we've done inside loadItems we dont call save items or context or save here because we dont need to change the persistent container-- and instead we're just fetching it and looking at the current version.
+    */
+            
+    //for deleting the current selected row, but then this is just the temporary area and unless we have that context and we commit those changes to our persistent container then this line would have done nothing at all.
+            
+        //    context.delete(itemArray[indexPath.row])
    
-//this single replaces our if statement code below - saying if its true make it false, if its false make it true - using this ! operator basically reversing what its used to be.
+   //when we reload the tableview we were able to refresh the latest items
             
+       //     itemArray.remove(at: indexPath.row)
+     
 
-// if its true it becomes false, if its false it becomes true - booleans can only have 2 results, true/false, so its reversing its current result
             
-    itemArray[indexPath.row].done = !itemArray[indexPath.row].done
+           // itemArray[indexPath.row].done = !itemArray[indexPath.row].done
             
+            saveItems()
             
-//             if itemArray[indexPath.row].done == false {
-//                itemArray[indexPath.row].done = true
-//             } else {
-//                itemArray[indexPath.row].done = false
-//             }
-           
-//we can now delete the reloadData below code since it already exists inside our saveitems.
+            tableView.deselectRow(at: indexPath, animated: true)
             
-        saveItems()
-            
-    //what this really does is it forces the tableview to call its data source methods again so that it reloads the data, that means to be inside
-          //  tableView.reloadData()
-            
-        tableView.deselectRow(at: indexPath, animated: true)
-            
-
-        }
+    }
         
  //MARK: Add New Items
         
@@ -118,36 +107,20 @@ import UIKit
             let action = UIAlertAction(title: "Add Item", style: .default) {
                  (action) in
                 
-                let newItem = Item()
+            //we can now tap into our context because of the above code
+                let newItem = Item(context: self.context)
                 newItem.title = textField.text!
                 
+        //remember we set our database done into fix or must have value, and not setting this up will result into nil
+                
+                newItem.done = false
+                
+                
+                newItem.parentCategory = self.selectedCategory
                 
         //then here now we can append but using newItem
                 
                 self.itemArray.append(newItem)
-                
-    
-  //after removing the userdefaults because we will be creating our own plist, the first thing we need to change is this line below, where we set our item array for the key todolistarray into our userdefaults. And because our itemArray is an array of our custom item object then this line fails -- and this is when our app crashes.
-                //self.defaults.set(self.itemArray, forKey:"TodoListArray")
-    
-    //so now we are going to create an encoder --- and the code is going to be a new object of the type property list encoder and we're going to intialize it.
-                //encoder process - let encoder equals propertylist, encode the data then try and write the data to that data file path -- and if theres an error print error and then reload the data. Instead of copying these codes, its a good time to think about creating a safe data method-- lets go ahead and create a new function called saveItem
-                
-       /*         let encoder = PropertyListEncoder()
-              //which will encode our data namely our item array into a propertylist, so we're going to use our encoder and were going to use the method in code and the value that were going to encode is our item array. But once we hit enter we might stumble with some error -- one is that the encode method can throw an error. so we know what we do, and that is to incorporate a do block, try and catch --- and finally we need to mark this method with a try and because we are inside a closure -- i.e the part that gets triggered once the user presses the add item button then we have to mark all our properties with a self.
-                do {
-                    let data = try encoder.encode(self.itemArray)
-                    //now once we have coded our data, the next step is to write the data to our data file path, and this is also a method that can throw errors, so we have to marked it with a try also -- so writing the data to a location and the location is ofcourse going to be a data file path that we indicated at the top and we need to move it outside or on the very top so it will be global. And again, we need to mark this a self because we are again inside a closure.
-                    try data.write(to: self.dataFilePath!)
-                } catch {
-                    print("Error encoding item array, \(error)")
-                }
-                
-                //the next thing we have to do here is to go to our datamodel and we have to mark our class as conforming to the protocols -- Encodable
-                
-                
-                self.tableView.reloadData()
- */
                 
                 self.saveItems()
                 
@@ -165,40 +138,111 @@ import UIKit
             present(alert, animated: true, completion: nil)
     }
         
-    //MARK - Model Manipulation Methods
+//MARK - Model Manipulation Methods
         
-        //inside this function - were going to copy all of the let encoder code - so now because we're no longer inside a closure we can get rid of these self method, and we can also simply call saveItems() from the lines where we remove these codes --- both when we added new item using the alert controller but also when we toggle the check mark
     func saveItems(){
-            let encoder = PropertyListEncoder()
 
             do {
-                let data = try encoder.encode(itemArray)
-                try data.write(to: dataFilePath!)
+                try context.save()
             } catch {
-                print("Error encoding item array, \(error)")
+                print("Error saving context \(error)")
+                
             }
-            
-            //the next thing we have to do here is to go to our datamodel and we have to mark our class as conforming to the protocols -- Encodable
             
             
             self.tableView.reloadData()
         }
         
+   //NSPredicate? --- this means that we cans till loadItems without providing any parameters because both parameters have a default value.
+    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest(), predicate: NSPredicate? = nil) {
+       
+       //our query so that the items will load according to their parentcategory
+        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCategory!.name!)
+    
+    //making sure that it is not nil, and to make sure that we are always safe
+            if let additionalPredicate = predicate {
 
-        
-    func loadItems() {
-            //this again a method that can throw error - so we're going to makr it with a try questionmark which will turn the result of this method into an optional so then we will use optional binding to unwrap that safely. So now, just as above we created an object that was an encoder using the property list encoder in order to decode items, we have to create a decoder and its a propertylistdecoder
-            if let data = try? Data(contentsOf: dataFilePath!) {
-                let decoder = PropertyListDecoder()
+                request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, additionalPredicate])
                 
-                //now that we've got our decoder, were going to see our array up here -- itemarray which contains an array of items
-                do {
-                    itemArray = try decoder.decode([Item].self, from: data)
-                } catch {
-                    print("Error decoding item array, \(error)")
-                }
+            } else {
+                request.predicate = categoryPredicate
+            }
+        
+        
+        do {
+           itemArray = try context.fetch(request) //means fetching the current request
+        } catch {
+            print("Error fetching data from context \(error)")
         }
 
-}
+            tableView.reloadData()
+    }
+
 
 }
+
+//This is our TodoListViewController EXTENSION - where we are extending the functionality by adding search bar -- so this is a good point for us to query our database and try to get back the results that the user is searching for.
+
+
+
+//MARK: - Search Bar Methods -- Command + K to open text on simulator
+extension TodoListViewController: UISearchBarDelegate {
+    
+     func searchBarSearchButtonClicked(_ searchBar: UISearchBar){
+        
+        let request : NSFetchRequest<Item> = Item.fetchRequest()
+        
+        //print(searchBar.text!)
+        
+        
+        let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+        
+        request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
+        
+        loadItems(with: request, predicate: predicate)
+        
+    }
+    
+      
+        
+//this method is not going to trigger because the text has not changed and its only when the text is changed
+        
+        func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+            
+            if searchBar.text?.count == 0 {
+                loadItems()
+                
+    //dispatchqueue is that manager who assigns these projects to different threads
+                
+                DispatchQueue.main.async {
+                    //keyboard cursor disappears
+                        searchBar.resignFirstResponder()
+                    
+                }
+                
+            }
+            
+        }
+        
+    
+}
+
+
+//So what happened was were creating a new request, then we modify it with our query and our sort descriptor, and then we pass that request into our load items function on the (loadItems(with request: NSFetchRequest<Item>), and then we perform that request by saying context.fetch so we can now delete this do catch block -- on the extension todolistviewcontroller, and we can also delete tableView.reloadData() because its already inisde loaditems
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
