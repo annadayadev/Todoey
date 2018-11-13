@@ -6,28 +6,30 @@
 //  Copyright © 2018 Ann Adaya. All rights reserved.
 //
 
+
+//Migrate Error -- to resolve this, you need to press and hold the app on the home until it tickles and you can choose to remove the app and back to xcode and build again.
+
 //For our SearchBar --- Every single time we've declared off you viecontrollerapp as a delegate of something we also have to make an IB outlet for our search bar and then inside viewdidload say something like searchbar.delegate = self ---- same procedure, adding the protocol in the class declaration and also setting the outlet's delegate as self.
 
 import UIKit
-import CoreData
+import RealmSwift
 
     class TodoListViewController: UITableViewController {
         
-        var itemArray = [Item]()
+        var todoItems : Results<Item>?
+        let realm = try! Realm()
  
         var selectedCategory : Category? {
             didSet {
                 //when we do call loaditems were certain that we've already got a value for our selected category and were not calling it before we actually have a value which might crash our app
+                
+                //var items : Results<Item>?
                 
                 loadItems()
     
             }
         }
    
-//this goes into the appdelegate, grabs the persistent container, and then we grab a reference to the context for that persistent container
-        let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-
-        
         override func viewDidLoad() {
             super.viewDidLoad()
         
@@ -45,19 +47,22 @@ import CoreData
 //Mark - Tableview Datasource Methods
         
         override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-            return itemArray.count
+            return todoItems?.count ?? 1
         }
         
         override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
-        let cell = tableView.dequeueReusableCell(withIdentifier: "ToDoItemCell", for: indexPath)
+            let cell = tableView.dequeueReusableCell(withIdentifier: "ToDoItemCell", for: indexPath)
 
-        let item = itemArray[indexPath.row]
-            
-        cell.textLabel?.text = item.title
-        
-        cell.accessoryType = item.done ? .checkmark : .none
-            
+            if let item = todoItems?[indexPath.row] {
+                
+                cell.textLabel?.text = item.title
+                
+                cell.accessoryType = item.done ? .checkmark : .none
+                
+            } else {
+                cell.textLabel?.text = "No Items Added"
+            }
 
             return cell
         }
@@ -71,7 +76,22 @@ import CoreData
         //No matter how you decide to update your NSManageObject, you will still have to always have to call context.save -- that's because we're doing all of our changes, all of our creating, updating, reading and destroying inside our temporary context -- and only once we're happy with those changes that we call context.save and commits those changes to our permanent container.
 
         override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-    
+            
+            if let item = todoItems?[indexPath.row] {
+                //if this is not nil
+                do {
+                    try realm.write {
+                //this is for deleting instead of checking
+                        //realm.delete(item)
+                        item.done = !item.done
+                    }
+            } catch {
+                print("Error saving done status, \(error)")
+            }
+        }
+            
+            tableView.reloadData()
+            
     /* To delete items from our context -- all we need to do is call context.delete and then specify the item that we want removed but that's not enough -- as with everything using coredata and trying to do crud on it we also have to also save the context and commit the current status to our persistent container. Basically whenever you need to change the data inside the persistent store you always need to call context.save to commit those changes.
  
         Now when you're reading or as we've done inside loadItems we dont call save items or context or save here because we dont need to change the persistent container-- and instead we're just fetching it and looking at the current version.
@@ -87,9 +107,9 @@ import CoreData
      
 
             
-           // itemArray[indexPath.row].done = !itemArray[indexPath.row].done
+           // itemArray[indexPath.row].done = !todoItems[indexPath.row].done
             
-            saveItems()
+          //  saveItems()
             
             tableView.deselectRow(at: indexPath, animated: true)
             
@@ -103,26 +123,23 @@ import CoreData
             
             let alert = UIAlertController(title: "Add New Todoey Item", message: "", preferredStyle: .alert)
             
-
-            let action = UIAlertAction(title: "Add Item", style: .default) {
-                 (action) in
+            let action = UIAlertAction(title: "Add Item", style: .default) { (action) in
+                //what will happen once the user clicks the Add Item button on our UIAlert
                 
-            //we can now tap into our context because of the above code
-                let newItem = Item(context: self.context)
-                newItem.title = textField.text!
+                if let currentCategory = self.selectedCategory {
+                    do {
+                        try self.realm.write {
+                            let newItem = Item()
+                            newItem.title = textField.text!
+                            newItem.dateCreated = Date()
+                            currentCategory.items.append(newItem)
+                        }
+                    } catch {
+                        print("Error saving new items, \(error)")
+                    }
+                }
                 
-        //remember we set our database done into fix or must have value, and not setting this up will result into nil
-                
-                newItem.done = false
-                
-                
-                newItem.parentCategory = self.selectedCategory
-                
-        //then here now we can append but using newItem
-                
-                self.itemArray.append(newItem)
-                
-                self.saveItems()
+                self.tableView.reloadData()
                 
             }
             
@@ -140,45 +157,12 @@ import CoreData
         
 //MARK - Model Manipulation Methods
         
-    func saveItems(){
+    func loadItems() {
 
-            do {
-                try context.save()
-            } catch {
-                print("Error saving context \(error)")
-                
-            }
-            
-            
-            self.tableView.reloadData()
-        }
-        
-   //NSPredicate? --- this means that we cans till loadItems without providing any parameters because both parameters have a default value.
-    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest(), predicate: NSPredicate? = nil) {
-       
-       //our query so that the items will load according to their parentcategory
-        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCategory!.name!)
-    
-    //making sure that it is not nil, and to make sure that we are always safe
-            if let additionalPredicate = predicate {
-
-                request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, additionalPredicate])
-                
-            } else {
-                request.predicate = categoryPredicate
-            }
-        
-        
-        do {
-           itemArray = try context.fetch(request) //means fetching the current request
-        } catch {
-            print("Error fetching data from context \(error)")
-        }
+        todoItems = selectedCategory?.items.sorted(byKeyPath: "title", ascending: true)
 
             tableView.reloadData()
     }
-
-
 }
 
 //This is our TodoListViewController EXTENSION - where we are extending the functionality by adding search bar -- so this is a good point for us to query our database and try to get back the results that the user is searching for.
@@ -187,44 +171,43 @@ import CoreData
 
 //MARK: - Search Bar Methods -- Command + K to open text on simulator
 extension TodoListViewController: UISearchBarDelegate {
-    
+
      func searchBarSearchButtonClicked(_ searchBar: UISearchBar){
         
-        let request : NSFetchRequest<Item> = Item.fetchRequest()
+    //when the search bar is clicked, we're going to filter
         
-        //print(searchBar.text!)
+        //means update todoitems to equal to todoitems filtered by this predicate
+//        todoItems = todoItems?.filter("title CONTAINS[cd] %@, searchBar.text!").sorted(byKeyPath: "title", ascending: true)
         
+        //sorted by date created
+        todoItems = todoItems?.filter("title CONTAINS[cd] %@, searchBar.text!").sorted(byKeyPath: "dateCreated", ascending: true)
         
-        let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
-        
-        request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
-        
-        loadItems(with: request, predicate: predicate)
-        
+        tableView.reloadData()
+
     }
-    
-      
-        
+
+
+//*** So here, what should happen if we dismissed the searchbar
 //this method is not going to trigger because the text has not changed and its only when the text is changed
-        
+
         func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
-            
+
             if searchBar.text?.count == 0 {
                 loadItems()
-                
+
     //dispatchqueue is that manager who assigns these projects to different threads
-                
+
                 DispatchQueue.main.async {
                     //keyboard cursor disappears
                         searchBar.resignFirstResponder()
-                    
+
                 }
-                
+
             }
-            
+
         }
-        
-    
+
+
 }
 
 

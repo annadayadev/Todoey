@@ -7,14 +7,18 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
 
 class CategoryViewController: UITableViewController {
     
-    var categories = [Category]()
+//code smell/bad smell, indicates possibly bad code or deeper problem but not always -- this code is a perfect way of creating a new realm.
+    let realm = try! Realm()
     
-    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-
+    //var categories = [Category]()
+    
+//inorder to use result data type we will change our datatype here-- results is an auto-updating container type in realm returned from object queries.
+    var categories : Results<Category>?
+    
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -30,7 +34,9 @@ class CategoryViewController: UITableViewController {
 //MARK: - TableView Datasource Methods -- so we can display all the categories that are inside our persistent container
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return categories.count
+        
+    //if its not nil then return category.count, if it is nil then just return one -- this syntax in Swift is called Nil Coalescing Operator -- if its nil then this operator will say, use this value (1) instead
+        return categories?.count ?? 1
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -40,7 +46,7 @@ class CategoryViewController: UITableViewController {
         
            // let category = categories[indexPath.row]
         
-            cell.textLabel?.text = categories[indexPath.row].name
+            cell.textLabel?.text = categories?[indexPath.row].name ?? "No Categories Added yet"
         
             return cell
         
@@ -54,13 +60,16 @@ class CategoryViewController: UITableViewController {
 //        tableView.deselectRow(at: indexPath, animated: true)
 //    }
 //
+   
     
+// This is for the Segue -- changing screens/pages
 //MARK: - TableView Delegate Methods -- refers to what should happen when we click on one of the cells inside the category table.
     
     override func tableView(_ tableView: UITableView, didDeselectRowAt indexPath: IndexPath) {
         performSegue(withIdentifier: "goToItems", sender: self)
         
         }
+    
     //prepare for segue, because this is going to be triggered just before we perform that segue
         
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
@@ -70,7 +79,7 @@ class CategoryViewController: UITableViewController {
         
         if let indexPath = tableView.indexPathForSelectedRow {
         
-            destinationVC.selectedCategory = categories[indexPath.row]
+            destinationVC.selectedCategory = categories?[indexPath.row]
             
         }
     }
@@ -79,10 +88,12 @@ class CategoryViewController: UITableViewController {
     
 //MARK: - Data Manipulation Methods -- namely save data and load data so that we can use CRUD
     
-    func saveCategories(){
+    func save(category: Category){
         
             do {
-                try context.save()
+                try realm.write {
+                    realm.add(category)
+                }
             } catch {
                 print("Error saving context \(error)")
             }
@@ -91,26 +102,12 @@ class CategoryViewController: UITableViewController {
         
         }
     
-//    func loadCategories(with request: NSFetchRequest<Category> = Category.fetchRequest()) {
-//
-//            do {
-//                categories = try context.fetch(request)
-//            } catch {
-//                print("Error fetching data from context \(error)")
-//            }
-//
-//            tableView.reloadData()
-//        }
     
     func loadCategories() {
         
-        let request : NSFetchRequest<Category> = Category.fetchRequest()
+        //we say, look inside the realm and fetch all of the objects that belong to the category data type
         
-        do {
-            categories = try context.fetch(request)
-        } catch {
-            print("Error fetching data from context \(error)")
-        }
+         categories = realm.objects(Category.self)
         
         tableView.reloadData()
     }
@@ -121,20 +118,21 @@ class CategoryViewController: UITableViewController {
 
     @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
         
-            var textField = UITextField()
+        var textField = UITextField()
         
-        let alert = UIAlertController(title: "Add New Todoey Category", message:"", preferredStyle: .alert)
+        let alert = UIAlertController(title: "Add New Category", message:"", preferredStyle: .alert)
         
-        let action = UIAlertAction(title: "Add Category", style: .default) {
+        let action = UIAlertAction(title: "Add", style: .default) {
                 (action) in
               
         //what should happen when the user clicks that add button?
-                let newCategory = Category(context: self.context)
+                let newCategory = Category()
                 newCategory.name = textField.text!
+            
+        //since our result data type as we found out earlier is an auto updating container -- we dont necessarily need to append things anymore -- because it will simply auto-update.
+               // self.categories.append(newCategory)
                 
-                self.categories.append(newCategory)
-                
-                self.saveCategories()
+                self.save(category: newCategory)
                 
             }
         
@@ -142,7 +140,7 @@ class CategoryViewController: UITableViewController {
             alert.addAction(action)
         
             alert.addTextField { (field) in
-                textField.placeholder = "Create new category"
+                textField.placeholder = "Add a new category"
                 textField = field
             }
         

@@ -8,6 +8,7 @@
 
 import UIKit
 import CoreData
+import RealmSwift
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -17,46 +18,28 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?) -> Bool {
         
+      //to locate our realm database
+       //print(Realm.Configuration.defaultConfiguration.fileURL)
+        
+        
+   //here were going to create our brandnew realm -- realm is a different persistence containers,but it can provide a throw error
+        
+    //realm allows us to use object oriented programming persist objects
+ 
+//after adding our Data.swift, we can now create a new piece of data that is going to be an object of the data class and we can set its properties
+        
+
+        do {
+            _ = try Realm()
+            
+        } catch {
+            print("Error initialising realm, \(error)")
+        }
+        
         return true
     }
 
-    func applicationWillTerminate(_ application: UIApplication) {
 
-        self.saveContext()
-    }
-    
-    // MARK: - Core Data stack
- 
- //lazy variables are when we create a variable that we declare as lazy that it only gets loaded up with a value at the time point when its needed -- i.e when you try to use this thing called persistentcontainer that is when all of this code is going to run and its going have a value set -- the lazy variable gets a memory benefit -- so you're only occupying the memory when its needed rather than having everything set up beforehand.
-    lazy var persistentContainer: NSPersistentContainer = {
 
-        
-        //make sure that the name should be the same from the file we just created namely DataModel
-        let container = NSPersistentContainer(name: "DataModel")
-        container.loadPersistentStores(completionHandler: { (storeDescription, error) in
-            if let error = error as NSError? {
-
-                fatalError("Unresolved error \(error), \(error.userInfo)")
-            }
-        })
-        return container
-    }()
-    
-    // MARK: - Core Data Saving support
-    
-    func saveContext () {
-        let context = persistentContainer.viewContext
-        if context.hasChanges {
-            do {
-                try context.save()
-            } catch {
-
-                let nserror = error as NSError
-                fatalError("Unresolved error \(nserror), \(nserror.userInfo)")
-            }
-        }
-    }
-    
 }
-
 
